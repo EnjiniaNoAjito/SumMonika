@@ -2,15 +2,23 @@ from tkinter import *
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.text_rank import TextRankSummarizer
+from sumy.summarizers.lsa import LsaSummarizer
+from sumy.summarizers.luhn import LuhnSummarizer
+from sumy.summarizers.edmundson import EdmundsonSummarizer
 import nltk
 from time import sleep
 from PIL import Image, ImageTk
+import re
 #  --Создание окна--
 root = Tk()
 root.geometry('900x710')
 canvas = Canvas(root, width=900, height=710)
+nltk.download('punkt')
+nltk.download('punkt_tab')
+nltk.download('stopwords')
 TEXT_SUMM = ""
 OPTIONS = {}
+SUMMARY = ''
 pil_image = Image.open("Dot.png")
 piece1_image = Image.open("PIECE.png")
 sh_image = Image.open("SHEET.png")
@@ -32,6 +40,51 @@ bg_image = ImageTk.PhotoImage(resized_img)
 bg3_image = ImageTk.PhotoImage(imageent)
 bg4_image = ImageTk.PhotoImage(mon_image)
 bg5_image = ImageTk.PhotoImage(mon1_image)
+
+# --Создание элементов--
+canvas.create_image(440, 0, anchor=NW, image=bg0_image)
+canvas.create_image(0, 0, anchor=NW, image=bg_image)
+canvas.create_image(5, 300, anchor=NW, image=bg1_image)
+canvas.create_image(360, 10, anchor=NW, image=bg3_image)
+canvas.place(x=0, y=0)
+image = Image.open("Button.png")
+image1 = Image.open("Button1.png")
+pen_image = Image.open("Pen.png")
+new2_size = (580, 43)
+resized_img2 = pen_image.resize(new2_size, Image.Resampling.LANCZOS)
+resized_img2.save("Pen_resized.png")
+p_p_image = Image.open("Pen_open.png")
+pen_wait_image = ImageTk.PhotoImage(p_p_image)
+image_pen = ImageTk.PhotoImage(resized_img2)
+photo = ImageTk.PhotoImage(image)
+photo1 = ImageTk.PhotoImage(image1)
+
+def submit_all():
+   global SUMMARY
+   print(OPTIONS)
+   print('эта информация будет использоваться для суммаризации текста')
+   
+   prepared_text = re.sub(r'[?.!]{2,}', ".", TEXT_SUMM)
+   sentences = prepared_text.count(".")
+   sentences_final = round((int(OPTIONS['percent'].replace("%", ""))/100)*sentences) - (round((int(OPTIONS['percent'].replace("%", ""))/100)*sentences) == sentences)
+   
+   methods = {"TextRankSummarizer" : TextRankSummarizer, "LsaSummarizer" : LsaSummarizer, "LuhnSummarizer" : LuhnSummarizer, "EdmundsonSummarizer" : EdmundsonSummarizer}
+   parser = PlaintextParser.from_string(TEXT_SUMM, Tokenizer(OPTIONS['language']))
+   summarizer = TextRankSummarizer()
+   summary = summarizer(parser.document, sentences_final)
+   li = [str(s)+"\n" for s in summary]
+   o = "".join(li)
+   ready = []
+   for s in li:
+      chunks = [s[i:i+47]+'\n' if not(s[i:i+47].endswith('\n')) else s[i:i+47] for i in range(0, len(s), 47)]
+      ready = ready + chunks
+   r1 = ''.join(ready[:12])
+   copy_button.config(text=r1)
+   SUMMARY = ''.join(ready)
+def copy():
+   root.clipboard_clear()
+   root.clipboard_append(SUMMARY)
+
 # ----Логика кнопок-----
 def submit(obj):
    global TEXT_SUMM
@@ -42,8 +95,12 @@ def submit(obj):
       chunks = [s[i:i+76] for i in range(0, len(s), 76)]
       ready = ready + chunks
    r = '\n'.join(ready)
-   canvas.create_text(110, 320, text=r, fill='black', tags="mytext", anchor='nw', font=("Segoe Print", 12))
-   TEXT_SUMM = r
+   if len(ready) >= 12:
+      r1 = '\n'.join(ready[:11])+"..."
+   else:
+      r1 = '\n'.join(ready)
+   canvas.create_text(110, 320, text=r1, fill='black', tags="mytext", anchor='nw', font=("Segoe Print", 12))
+   TEXT_SUMM = text_content
 
 def write_poem():
    root_write = Toplevel(root)
@@ -72,8 +129,8 @@ def options():
    canvas.place(x=0, y=0)
    canvas.create_text(170, 10, text='Language', fill='black', tags="opts", anchor='nw', font=("Segoe Print", 12))
    var_l = StringVar()
-   rb1 = Radiobutton(root_options, text="English", variable=var_l, value="English", bg='pink')
-   rb2 = Radiobutton(root_options, text="Russian", variable=var_l, value="Russian", bg='pink')
+   rb1 = Radiobutton(root_options, text="English", variable=var_l, value="english", bg='pink')
+   rb2 = Radiobutton(root_options, text="Russian", variable=var_l, value="russian", bg='pink')
    rb1.config(fg='black', font=('Segoe Print', 12))
    rb2.config(fg='black', font=('Segoe Print', 12))
    rb1.place(x=100, y=38)
@@ -96,7 +153,7 @@ def options():
    down.place(x=239, y=125)
    canvas.create_text(110, 175, text='Summarizing method', fill='black', tags="opts", anchor='nw', font=("Segoe Print", 12))
    var_m = StringVar()
-   rb3 = Radiobutton(root_options, text="LexRank", variable=var_m, value="LexRank", bg='pink')
+   rb3 = Radiobutton(root_options, text="TextRank", variable=var_m, value="TextRankSummarizer", bg='pink')
    rb4 = Radiobutton(root_options, text="LsaSummarizer", variable=var_m, value="LsaSummarizer", bg='pink')
    rb5 = Radiobutton(root_options, text="LuhnSummarizer", variable=var_m, value="LuhnSummarizer", bg='pink')
    rb6 = Radiobutton(root_options, text="EdmundsonSummarizer", variable=var_m, value="EdmundsonSummarizer", bg='pink')
@@ -116,40 +173,23 @@ def options():
    submit.bind("<Enter>", monika1)
    submit.bind("<Leave>", monika2)
    submit.place(x=70, y=400)
-def submit_all():
-   print(TEXT_SUMM)
-   print(OPTIONS)
-   print('эта информация будет использоваться для суммаризации текста')
 
-# --Создание элементов--
-canvas.create_image(440, 0, anchor=NW, image=bg0_image)
-canvas.create_image(0, 0, anchor=NW, image=bg_image)
-canvas.create_image(5, 300, anchor=NW, image=bg1_image)
-canvas.create_image(360, 10, anchor=NW, image=bg3_image)
-canvas.place(x=0, y=0)
-image = Image.open("Button.png")
-image1 = Image.open("Button1.png")
-pen_image = Image.open("Pen.png")
-new2_size = (580, 43)
-resized_img2 = pen_image.resize(new2_size, Image.Resampling.LANCZOS)
-resized_img2.save("Pen_resized.png")
-p_p_image = Image.open("Pen_open.png")
-pen_wait_image = ImageTk.PhotoImage(p_p_image)
-image_pen = ImageTk.PhotoImage(resized_img2)
-photo = ImageTk.PhotoImage(image)
-photo1 = ImageTk.PhotoImage(image1)
+
 button = Button(root, image=photo, command=submit_all, borderwidth=0)
 button1 = Button(root, image=photo1, command=options, borderwidth=0)
 button_pen = Button(root, image=image_pen, command=write_poem, borderwidth=0, width=620, height=100, bg='white')
-button.place(x=8, y=400)
-button1.place(x=8, y=483)
-button_pen.place(x=0, y=620)
 def on_enter(event):
     button_pen.config(image=pen_wait_image)
 def on_leave(event):
     button_pen.config(image=image_pen)
 button_pen.bind("<Enter>", on_enter)
 button_pen.bind("<Leave>", on_leave)
+copy_button = Button(root, bg="#ffcfde", text='', anchor='nw', command=copy, borderwidth=0, width=46, height=12, wraplength=360, justify='left', font=("Segoe Print", 9))
+copy_button.place(x=410, y=20)
+button.place(x=8, y=400)
+button1.place(x=8, y=483)
+button_pen.place(x=0, y=620)
+
 #  canvas_enter = Canvas(root, width=460, height=270, bg='pink', bd=8, relief="ridge")
 #  canvas_enter.place(x=350, y=10)
 root.mainloop()
